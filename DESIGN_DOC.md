@@ -66,12 +66,22 @@ The visualization component will transform the collected data into a graph:
 4. **Phase 4: Visualization**: Implement the NetworkX to PyVis pipeline.
 5. **Phase 5: Refinement**: Add filtering, scaling, and performance optimizations (threading for port scans).
 
-## 6. Feasibility Analysis
+## 6. Phase Delivery and Test Workflow
+Each implementation phase is delivered as an independent commit. Before committing, the phase must have:
+
+1. A small design/API review recorded in code documentation or this document.
+2. Unit tests for normal behavior, filtering, failure handling, and boundary cases.
+3. A complete `uv run pytest` run with no failures.
+4. A push to `origin/main` so the repository remains usable at every milestone.
+
+Phase 4 uses a scanner-centric topology because discovery does not yet expose switch-port or router forwarding information. The visualizer therefore shows confirmed scanner-to-device reachability and clearly avoids claiming physical topology. Filters are applied before graph construction, while node titles, colors, and sizes communicate identification quality.
+
+## 7. Feasibility Analysis
 - **Technical Feasibility**: **High**. The required libraries (`scapy`, `zeroconf`, `pyvis`) are mature and well-documented. The logic for node identification is a standard process in network administration.
 - **Resource Feasibility**: **High**. The tool has low CPU/RAM requirements, as it primarily performs I/O-bound network requests.
 - **Environment Feasibility**: **Medium**. The tool will require administrative/root privileges to perform ARP scanning and raw socket manipulation (standard for network tools).
 
-## 7. Risks & Mitigations
+## 8. Risks & Mitigations
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |

@@ -4,6 +4,7 @@ from network_mapper.discovery import NetworkDiscovery
 from network_mapper.models import NetworkNode
 from network_mapper.identification import NetworkIdentifier
 from network_mapper.persistence import SnapshotWriter
+from network_mapper.visualization import NetworkVisualizer
 
 def check_root():
     """Check if the script is running with root privileges."""
@@ -56,6 +57,14 @@ def main():
             subnet=str(discovery.local_net),
         )
         print(f"[+] Snapshot written to {snapshot_path}")
+
+        visualizer = NetworkVisualizer()
+        graph = visualizer.build_graph(nodes, scanner_ip=discovery.local_ip)
+        map_path = visualizer.render(
+            graph,
+            snapshot_path.parent.parent / "maps" / snapshot_path.with_suffix(".html").name,
+        )
+        print(f"[+] Interactive map written to {map_path}")
 
     except Exception as e:
         print(f"[-] An unexpected error occurred: {e}")

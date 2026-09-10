@@ -12,6 +12,8 @@ dependencies = [
     "zeroconf",
     "requests",
     "beautifulsoup4",
+    "networkx",
+    "pyvis",
 ]
 
 [dependency-groups]
