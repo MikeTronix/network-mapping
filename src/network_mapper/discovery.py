@@ -1,13 +1,18 @@
-import socket
 import ipaddress
-from scapy.all import ARP, Ether, srp, ICMP, IP, sr1
+import socket
+from concurrent.futures import ThreadPoolExecutor
+
+from scapy.all import ARP, Ether, ICMP, IP, sr1, srp
 
 class NetworkDiscovery:
     """Handles the discovery of active devices on the local network."""
 
-    def __init__(self):
+    def __init__(self, subnet=None, *, arp_timeout=2.0, icmp_timeout=0.5, workers=32):
         self.local_ip = self._get_local_ip()
-        self.local_net = self._get_local_network()
+        self.local_net = subnet or self._get_local_network()
+        self.arp_timeout = arp_timeout
+        self.icmp_timeout = icmp_timeout
+        self.workers = max(1, workers)
         print(f"[*] Local IP: {self.local_ip}")
         print(f"[*] Local Network: {self.local_net}")
 
@@ -55,7 +60,9 @@ class NetworkDiscovery:
         arp_request_broadcast = broadcast / arp_request
 
         # Send and receive packets (timeout 2s)
-        answered, unanswered = srp(arp_request_broadcast, timeout=2, verbose=False)
+        answered, unanswered = srp(
+            arp_request_broadcast, timeout=self.arp_timeout, verbose=False
+        )
 
         devices = []
         for sent, received in answered:
@@ -74,30 +81,30 @@ class NetworkDiscovery:
             return []
 
         print(f"[*] Starting ICMP scan on {self.local_net}...")
-        devices = []
-        # We iterate through the subnet
-        for ip in self.local_net.hosts():
+        def ping(ip):
             ip_str = str(ip)
-            # Send a single ICMP Echo Request
-            packet = IP(dst=ip_str)/ICMP()
-            reply = sr1(packet, timeout=0.5, verbose=False)
-            
+            try:
+                reply = sr1(
+                    IP(dst=ip_str) / ICMP(),
+                    timeout=self.icmp_timeout,
+                    verbose=False,
+                )
+            except Exception:
+                return None
             if reply:
-                # Since ICMP doesn't give us the MAC, we can try to resolve it 
-                # but usually, ARP has already done the heavy lifting.
-                devices.append({
-                    "ip": ip_str,
-                    "mac": "Unknown", # ICMP doesn't provide MAC directly in the response
-                    "method": "ICMP"
-                })
-        
+                return {"ip": ip_str, "mac": "Unknown", "method": "ICMP"}
+            return None
+
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            devices = [result for result in executor.map(ping, self.local_net.hosts()) if result]
+
         print(f"[+] ICMP scan found {len(devices)} devices.")
         return devices
 
-    def discover(self):
-        """Combine ARP and ICMP scans to find all live devices."""
+    def discover(self, *, include_icmp=True):
+        """Combine ARP and optional ICMP scans to find all live devices."""
         arp_results = self.arp_scan()
-        icmp_results = self.icmp_scan()
+        icmp_results = self.icmp_scan() if include_icmp else []
 
         # Merge results using IP as key
         final_devices = {}

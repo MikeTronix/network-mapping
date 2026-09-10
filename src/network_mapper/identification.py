@@ -1,4 +1,6 @@
 import socket
+from concurrent.futures import ThreadPoolExecutor
+
 import requests
 from bs4 import BeautifulSoup
 from zeroconf import Zeroconf
@@ -7,8 +9,11 @@ from network_mapper.models import NetworkNode
 class NetworkIdentifier:
     """Handles the identification and fingerprinting of discovered network nodes."""
 
-    def __init__(self):
+    def __init__(self, *, socket_timeout=0.2, http_timeout=1.0, workers=16):
         self.zc = Zeroconf()
+        self.socket_timeout = socket_timeout
+        self.http_timeout = http_timeout
+        self.workers = max(1, workers)
         self.common_ports = {
             22: "SSH (Linux/Unix/Switch)",
             80: "HTTP (Web Server)",
@@ -54,7 +59,7 @@ class NetworkIdentifier:
 
         for port, name in self.common_ports.items():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.2)
+                s.settimeout(self.socket_timeout)
                 if s.connect_ex((ip, port)) == 0:
                     found_services.append(name)
                     # Refine role based on key services
@@ -75,7 +80,7 @@ class NetworkIdentifier:
         try:
             protocol = "https" if port == 443 else "http"
             url = f"{protocol}://{ip}:{port}"
-            response = requests.get(url, timeout=1, verify=False)
+            response = requests.get(url, timeout=self.http_timeout, verify=False)
             soup = BeautifulSoup(response.text, 'html.parser')
             if soup.title and soup.title.string:
                 return soup.title.string.strip()
@@ -106,6 +111,12 @@ class NetworkIdentifier:
         if "Web Server:" in node.role:
             node.hostname = node.role.replace("Web Server: ", "")
             node.confidence_score += 40
+
+    def identify_nodes(self, nodes):
+        """Identify nodes concurrently while preserving input order."""
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            list(executor.map(self.identify_node, nodes))
+        return nodes
 
     def close(self):
         """Close the zeroconf instance."""
