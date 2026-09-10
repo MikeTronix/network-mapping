@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "network-mapper"
+version = "0.1.0"
+description = "Local network discovery and mapping tool"
+requires-python = ">=3.10"
+dependencies = [
+    "scapy",
+    "zeroconf",
+    "requests",
+    "beautifulsoup4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

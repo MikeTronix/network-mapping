@@ -1,0 +1,6 @@
+scapy
+zeroconf
+requests
+beautifulsoup4
+pytest
+pytest-mock
